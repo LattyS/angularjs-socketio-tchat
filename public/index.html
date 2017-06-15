@@ -10,15 +10,60 @@
 
     <h1>Hello World !</h1>
 
-    <script src="/socket.io/socket.io.js"></script>  
+    <ul id="usersList">
+    </ul>
+
+    <script src="/socket.io/socket.io.js"></script>
     <script>
     
         var pseudo = prompt('Entrez votre pseudo svp !');
+        var list = []; // Par défaut, la liste connue de cet utilisateur est une liste vide
 
         var socket = io('ws://localhost:1337');
         
         // Envoi au serveur de mon pseudo
         socket.emit('setPseudo', pseudo);
+
+        /* On écoutera ensuite du serveur chaque événement suivant :
+            1) 'usersList' : Envoi de la liste initiale des utilisateurs connectés
+            2) 'newUser' : Un nouvel utilisateur est arrivé sur le tchat
+            3) 'userDisconnected' : Un utilisateur s'est déconnecté du tchat
+        */
+
+        // 1)
+        socket.on('usersList', function(usersList) {
+            list = usersList; // Mise à jour de la liste de cet utilisateur
+            buildList(list); // Reconstruction du <ul> au niveau du DOM
+        });
+
+        // 2)
+        socket.on('newUser', function(newUser) {
+            list.push(newUser); // Mise à jour de la liste de cet utilisateur
+            buildList(list); // Reconstruction du <ul> au niveau du DOM
+        });
+        
+        // 3)
+        socket.on('userDisconnected', function(userQuit) {
+            // Mise à jour de la liste de cet utilisateur
+            list = list.filter(function(user) {
+                return user.id !== userQuit.id;
+            });
+            buildList(list); // Reconstruction du <ul> au niveau du DOM
+        });
+
+        // -----------------------------
+
+        // Cette fonction utilitaire prend en paramètre une liste d'utilisateurs, et met à jour le DOM avec
+        function buildList(usersList) {
+            var usersListElement = document.getElementById('usersList');
+            var content = '';
+            
+            usersList.forEach(function(user) {
+                content += '<li>' + user.pseudo + '</li>';
+            });
+            
+            usersListElement.innerHTML = content;
+        }
 
     </script>
 
