@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Tchat Node.js</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <h1>Hello World !</h1>
+
+    <script src="/socket.io/socket.io.js"></script>  
+    <script>
+    
+        var pseudo = prompt('Entrez votre pseudo svp !');
+
+        var socket = io('ws://localhost:1337');
+        
+        // Envoi au serveur de mon pseudo
+        socket.emit('setPseudo', pseudo);
+
+    </script>
+
+</body>
+</html>
