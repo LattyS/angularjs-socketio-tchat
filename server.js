@@ -61,10 +61,6 @@ io.on('connection', socket => {
         usersList = usersList.filter(user => user !== currentUser); // Petit .filter sur un Array JavaScript (c.f. https://developer.mozilla.org/fr/docs/Web/JavaScript/Reference/Objets_globaux/Array/filter)
     });
 
-    socket.on('message', (message) => {
-        socket.broadcast.emit('message', {pseudo:user.pseudo, text:message});
-    });
-
 }); // Fin du "onconnection"
 
 const port = process.env.PORT || 1337;
