@@ -8,10 +8,19 @@
 </head>
 <body>
 
-    <h1>Hello World !</h1>
+    <main>
+        <div class="messages">
 
-    <ul id="usersList">
-    </ul>
+        </div>
+
+        <form class="tchatForm">
+            <input type="text" id="message" placeholder="Votre message ...">
+            <input type="submit">
+        </form>
+    </main>
+
+    <aside class="usersList">
+    </aside>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
@@ -28,6 +37,7 @@
             1) 'usersList' : Envoi de la liste initiale des utilisateurs connectés
             2) 'newUser' : Un nouvel utilisateur est arrivé sur le tchat
             3) 'userDisconnected' : Un utilisateur s'est déconnecté du tchat
+            4) 'message' : Ecoute les nouveaux messages provenants du serveur
         */
 
         // 1)
@@ -51,11 +61,27 @@
             buildList(list); // Reconstruction du <ul> au niveau du DOM
         });
 
+        // Envoi des nouveaux messages dans le tchat
+        document.getElementsByClassName('tchatForm')[0].onsubmit = function(e) {
+            e.preventDefault();
+
+            var text = document.getElementById('message').value;
+
+            socket.emit('message', text);
+
+            document.getElementsByClassName('messages')[0].innerHTML += '<p><strong>'+ pseudo +'</strong> '+ text +'</p>';
+        };
+
+        // 
+        socket.on('message', function(message) {
+            document.getElementsByClassName('messages')[0].innerHTML += '<p><strong>'+ message.pseudo +'</strong> '+ message.text +'</p>';
+        });
+
         // -----------------------------
 
         // Cette fonction utilitaire prend en paramètre une liste d'utilisateurs, et met à jour le DOM avec
         function buildList(usersList) {
-            var usersListElement = document.getElementById('usersList');
+            var usersListElement = document.getElementsByClassName('usersList')[0];
             var content = '';
             
             usersList.forEach(function(user) {

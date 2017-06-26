@@ -11,13 +11,15 @@ const usersList = [];
 
 io.on('connection', socket => {
 
+    const user = {};
+
     socket.on('setPseudo', pseudo => {
         /* Un nouvel utilisateur (représenté ici par la variable 'socket') vient de se connecter et définir son pseudo, il faut donc :
             1) créer cet objet utilisateur et le stocker dans la liste du serveur
             2) donner à ce nouvel utilisateur la liste des membres déjà présents
             3) notifier tous les autres connectés que cet utilisateur vient d'arriver sur le channel
         */
-
+ 
         // 1) Création et stockage du nouvel utilisateur dans la liste de notre serveur (qui lui stocke un ID)
         let newUser = { id: socket.id, pseudo: pseudo };
         usersList.push(newUser);
@@ -27,6 +29,8 @@ io.on('connection', socket => {
 
         // 3) le 'modifier' broadcast permet d'envoyer à tout le monde SAUF à ce socket là : https://socket.io/docs/server-api/#flag-broadcast
         socket.broadcast.emit('newUser', newUser);
+
+        user.pseudo = pseudo;
         
     });
 
@@ -41,6 +45,10 @@ io.on('connection', socket => {
         
         // 1) On dit aux autres que cet user s'est déconnecté, pour qu'ils puissent mettre leur liste à jour
         socket.broadcast.emit('userDisconnected', user);
+    });
+
+    socket.on('message', (message) => {
+        socket.broadcast.emit('message', {pseudo:user.pseudo, text:message});
     });
 
 }); // Fin du "onconnection"
