@@ -4,66 +4,121 @@
     <meta charset="UTF-8">
     <title>Tchat Node.js</title>
 
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.css">
     <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body ng-app="tchatApp" class="container" ng-controller="TchatController as tchat">
 
-    <h1>Hello World !</h1>
+    <div ng-show="tchat.isDisconnected">
+        <h3>Choisissez un pseudo pour rejoindre le tchat :</h3>
+        <form class="form-inline" name="loginForm" ng-submit="tchat.loginUser()">
+            <input type="text" class="form-control" placeholder="Votre pseudo ..." required ng-model="tchat.pseudo">
+            <input type="submit" class="btn btn-primary" value="Rejoindre">
+        </form>
+    </div>
 
-    <ul id="usersList">
-    </ul>
+    <div ng-hide="tchat.isDisconnected">
+        <main class="col-md-9">
+            <div class="well well-sm">
+                <div ng-repeat="message in tchat.messages | limitTo : 10 : $last - 10">
+                    <strong>{{message.pseudo}}</strong> &gt; {{message.text}}
+                </div>
+            </div>
 
+            <form class="form-inline" name="messageForm" ng-submit="tchat.sendMessage()">
+                <p><em>(Connecté en tant que <strong>{{tchat.pseudo}}</strong>)</em></p>
+                <input type="text" class="form-control" placeholder="Votre message ..." size="50" ng-model="tchat.messageText" required>
+                <input type="submit" class="btn btn-primary" value="Envoyer">
+            </form>
+        </main>
+
+        <aside class="col-md-3">
+            <h4>Membres connectés</h4>
+            <ul>
+                <li ng-repeat="user in tchat.users">{{user.pseudo}} <span ng-show="user.id === tchat.socket.id">(vous)</span></li>
+            </ul>
+        </aside>
+    </div>
+
+    <script src="/node_modules/angular/angular.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
-    
-        var pseudo = prompt('Entrez votre pseudo svp !');
-        var list = []; // Par défaut, la liste connue de cet utilisateur est une liste vide
+        angular
+            .module('tchatApp', [])
+            .controller('TchatController', function($scope) {
+                var tchat = this;
 
-        var socket = io('ws://localhost:1337');
-        
-        // Envoi au serveur de mon pseudo
-        socket.emit('setPseudo', pseudo);
+                tchat.isDisconnected = true;
 
-        /* On écoutera ensuite du serveur chaque événement suivant :
-            1) 'usersList' : Envoi de la liste initiale des utilisateurs connectés
-            2) 'newUser' : Un nouvel utilisateur est arrivé sur le tchat
-            3) 'userDisconnected' : Un utilisateur s'est déconnecté du tchat
-        */
+                tchat.users    = []; // Par défaut, la liste connue de cet utilisateur est une liste vide
+                tchat.messages = []; // Par défaut, cet utilisateur n'a aucun message dans sa zone de tchat
+                
+                tchat.pseudo      = '';
+                tchat.messageText = '';
 
-        // 1)
-        socket.on('usersList', function(usersList) {
-            list = usersList; // Mise à jour de la liste de cet utilisateur
-            buildList(list); // Reconstruction du <ul> au niveau du DOM
-        });
+                // Lorsque l'utilisateur se connecte
+                tchat.loginUser = function() {
 
-        // 2)
-        socket.on('newUser', function(newUser) {
-            list.push(newUser); // Mise à jour de la liste de cet utilisateur
-            buildList(list); // Reconstruction du <ul> au niveau du DOM
-        });
-        
-        // 3)
-        socket.on('userDisconnected', function(userQuit) {
-            // Mise à jour de la liste de cet utilisateur
-            list = list.filter(function(user) {
-                return user.id !== userQuit.id;
-            });
-            buildList(list); // Reconstruction du <ul> au niveau du DOM
-        });
+                    tchat.isDisconnected = false;
 
-        // -----------------------------
+                    // Création et stockage du socket dans 'this', ce qui permet de l'utiliser dans la vue HTML
+                    tchat.socket = io('ws://localhost:1337');
 
-        // Cette fonction utilitaire prend en paramètre une liste d'utilisateurs, et met à jour le DOM avec
-        function buildList(usersList) {
-            var usersListElement = document.getElementById('usersList');
-            var content = '';
-            
-            usersList.forEach(function(user) {
-                content += '<li>' + user.pseudo + '</li>';
-            });
-            
-            usersListElement.innerHTML = content;
-        }
+                    // Envoi au serveur du pseudo (sous forme de texte)
+                    tchat.socket.emit('setPseudo', tchat.pseudo);
+
+                    /* On écoutera (avec .on) ensuite du serveur chaque événement suivant :
+                        1) 'usersList' : Envoi de la liste initiale des utilisateurs connectés
+                        2) 'newUser' : Un nouvel utilisateur est arrivé sur le tchat
+                        3) 'userDisconnected' : Un utilisateur s'est déconnecté du tchat
+                        4) 'message' : Ecoute les nouveaux messages provenants du serveur
+                    */
+
+                    // 1)
+                    tchat.socket.on('usersList', function(usersList) {
+                        tchat.users = usersList;
+                        $scope.$apply(); // Force les changements au niveau de la vue HTML
+                    });
+
+                    // 2) Le serveur nous dit que 'newUser' (sous forme d'objet) vient de rejoindre le chat
+                    tchat.socket.on('newUser', function(newUser) {
+                        tchat.users.push(newUser); // On l'ajoute à notre liste
+                        $scope.$apply(); // Force les changements au niveau de la vue HTML
+                    });
+
+                    // 3) Le serveur nous dit que 'userQuit' vient de quitter le chat 
+                    tchat.socket.on('userDisconnected', function(userQuit) {
+                        // Mise à jour de notre liste : on y supprime 'userQuit'
+                        tchat.users = tchat.users.filter(function(user) {
+                            return user.id !== userQuit.id;
+                        });
+                        $scope.$apply(); // Force les changements au niveau de la vue
+                    });
+
+                    // 4) Le serveur nous dit qu'un utilisateur à posté un nouveau message
+                    tchat.socket.on('message', function(message) {
+                        tchat.messages.push(message); // On rajoute ce message (qui est un objet) à notre propre liste
+                        $scope.$apply(); // Force les changements au niveau de la vue
+                    });
+                }; // Fin de tchat.loginUser()
+                
+                // Envoi des nouveaux messages dans le tchat
+                tchat.sendMessage = function() {
+                    if (tchat.messageText.trim() === '') return; // Filtre les messages vides
+
+                    // On informe le serveur qu'on veut poster ce message
+                    tchat.socket.emit('message', tchat.messageText); // on lui envoie une String
+
+                    // Puis, on rajoute notre propre message dans notre liste (pour qu'il s'affiche chez nous quand même :))
+                    tchat.messages.push( {
+                        pseudo : tchat.pseudo,
+                        text : tchat.messageText
+                    } );
+
+                    tchat.messageText = ''; // Réinitialise le champs message
+                }; // Fin de tchat.sendMessage()
+
+            }); // Fin du controller
 
     </script>
 
